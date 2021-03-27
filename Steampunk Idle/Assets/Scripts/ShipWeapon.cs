@@ -4,6 +4,10 @@ using UnityEngine;
 
 public class ShipWeapon : MonoBehaviour
 {
+    public GameObject explosionFireAnimation;
+    public GameObject explosionHitAnimation;
+    public GameObject hitTextPrefab;
+
     public int attackDmg;
     public float currentTimeToFire;
     public float timeToFire;
@@ -21,6 +25,7 @@ public class ShipWeapon : MonoBehaviour
     public IEnumerator DoAttack(ShipStats target)
     {
         // Fire animation here
+        Instantiate(explosionFireAnimation, this.transform);
         yield return new WaitForSeconds(travelTime);
 
         if (target != null)
@@ -30,13 +35,20 @@ public class ShipWeapon : MonoBehaviour
             // Hit or miss animation here
             if (evasionChance > (100 - accuracy) + target.evasion)
             {
+                Instantiate(explosionHitAnimation, target.spriteHolder.transform);
                 target.health -= attackDmg;
+                TextHitIndicator.CreateTextHit("-" + attackDmg, StaticGlobals.FindChildWithTag(target.transform, "ShipSprite"), hitTextPrefab);
                 gm.consistentHUD.UpdateHUD(gm);
 
                 if (target.health <= 0)
                 {
-                    gm.EndBattle(target);
+                    StartCoroutine(gm.EndBattle(target));
                 }
+            }
+            else
+            {
+                // Miss animation
+                TextHitIndicator.CreateTextHit("Miss", StaticGlobals.FindChildWithTag(target.transform, "ShipSprite"), hitTextPrefab);
             }
         }
     }

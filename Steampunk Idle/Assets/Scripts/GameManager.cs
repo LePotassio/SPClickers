@@ -166,11 +166,7 @@ public class GameManager : MonoBehaviour
         }
         else if (gameState == GameState.BATTLE)
         {
-            // Start an auto battle
-            // GameObject ship = selectEnemy
-            // startBattle(selectEnemy)
-            // Each .1 second, cound down all weapons... coroutine?
-            // IncrementBattle();
+            // This is done in IncrementBattle()
         }
         else if (gameState == GameState.EVENT)
         {
@@ -283,39 +279,57 @@ public class GameManager : MonoBehaviour
     private void IncrementBattle()
     {
         if (gameState == GameState.BATTLE) {
-            foreach (ShipWeapon sw in playerShipStats.weapons)
-            {
-                sw.currentTimeToFire -= .1f;
-                if (sw.currentTimeToFire <= 0)
+            if (!playerShipStats.isDead) {
+                foreach (ShipWeapon sw in playerShipStats.weapons)
                 {
-                    StartCoroutine(sw.DoAttack(enemyShipStats));
-                    sw.currentTimeToFire = sw.timeToFire;
+                    sw.currentTimeToFire -= .1f;
+                    if (sw.currentTimeToFire <= 0)
+                    {
+                        StartCoroutine(sw.DoAttack(enemyShipStats));
+                        sw.currentTimeToFire = sw.timeToFire;
+                    }
                 }
             }
-            
-            foreach (ShipWeapon sw in enemyShipStats.weapons)
-            {
-                sw.currentTimeToFire -= .1f;
-                if (sw.currentTimeToFire <= 0)
+            if (!enemyShipStats.isDead) {
+                foreach (ShipWeapon sw in enemyShipStats.weapons)
                 {
-                    StartCoroutine(sw.DoAttack(playerShipStats));
-                    sw.currentTimeToFire = sw.timeToFire;
+                    sw.currentTimeToFire -= .1f;
+                    if (sw.currentTimeToFire <= 0)
+                    {
+                        StartCoroutine(sw.DoAttack(playerShipStats));
+                        sw.currentTimeToFire = sw.timeToFire;
+                    }
                 }
             }
         }
     }
 
-    public void EndBattle(ShipStats loser)
+    public IEnumerator EndBattle(ShipStats loser)
     {
         if (loser.gameObject.tag == "PlayerShip")
         {
+            yield return new WaitForSeconds(1f);
+
             // Game over
-            Debug.Log("The player should lose now (not implemented)");
+            gameState = GameState.ACTIVE;
+            DestroyImmediate(enemyShipStats.gameObject, true);
+            scrap = scrap / 2;
+            playerShipStats.health = playerShipStats.maxHealth;
+            consistentHUD.UpdateHUD(this);
+            debugHUD.UpdateHUD(this);
+            resourceHUD.UpdateHUD(this);
         }
         else
         {
             // Win battle
+
             // Add rewards
+            // (list of reward executable types)
+
+            // Ship anim play death
+            yield return new WaitForSeconds(1f);
+
+
             DestroyImmediate(loser.gameObject, true);
             gameState = GameState.ACTIVE;
             // Might need to wait for all co routines to end

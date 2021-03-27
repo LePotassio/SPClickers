@@ -6,6 +6,7 @@ TagManager:
   tags:
   - PlayerShip
   - GameManager
+  - ShipSprite
   layers:
   - Default
   - TransparentFX

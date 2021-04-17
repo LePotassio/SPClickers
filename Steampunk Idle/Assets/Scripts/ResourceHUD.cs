@@ -12,11 +12,13 @@ public class ResourceHUD : MonoBehaviour
 
     public void UpdateHUD(GameManager gm)
     {
-        scrapText.text = "Scrap: " + gm.Scrap;
-        scrapPSText.text = "Scrap Per Second: " + gm.ScrapPS;
+        scrapText.text = "--" + gm.Scrap + "--";
+        scrapPSText.text = gm.ScrapPS + " sps";
         if (gm.ScrapButtonCD <= 0)
-            scrapButtonCDText.text = "Ready";
+            //scrapButtonCDText.text = "Ready";
+            scrapButtonCDText.text = "";
         else
-            scrapButtonCDText.text = "Cooling down\n(" + gm.ScrapButtonCD + " seconds)";
+            //scrapButtonCDText.text = "Cooling down\n(" + gm.ScrapButtonCD + " seconds)";
+            scrapButtonCDText.text = "";
     }
 }

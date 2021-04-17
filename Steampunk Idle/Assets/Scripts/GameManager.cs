@@ -2,10 +2,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+using TMPro;
+using UnityEngine.UI;
+
 public class GameManager : MonoBehaviour
 {
     // Gamestate Stuff
     public enum GameState { IDLE, ACTIVE, EVENT, SHOP, BATTLE, PAUSE }
+    // ACTIVE no longer exists, remove later
+    // Needed new states for other screens... or could have catch all for shop, factory, navigation and collection
 
     public GameState gs = GameState.IDLE;
 
@@ -14,7 +19,7 @@ public class GameManager : MonoBehaviour
     private int scrapPC = 1;
     private int scrapPS = 0;
     private float scrapButtonCD = 0f;
-    private float scrapButtonCDMax = 20f;
+    private float scrapButtonCDMax = 3f;
 
 
     // Time Stuff
@@ -38,13 +43,41 @@ public class GameManager : MonoBehaviour
 
     public GameObject placeholderPirate;
 
+
+    // Text Event stuff
+    List<TextEvent> textEvents;
+    public Button eventButton1;
+    public Button eventButton2;
+    public TextMeshProUGUI eventTimerText;
+    public TextMeshProUGUI eventPromptText;
+
     // HUD Stuff
     public ResourceHUD resourceHUD;
     public DebugHUD debugHUD;
     public ConsistentHUD consistentHUD;
 
+    public Canvas eventCanvas;
+
     public Canvas resourceScreen;
     public Canvas debugInfo;
+
+    int eventCDFlag;
+
+    public Animator gearAnim;
+
+    //Hyper laziness intensifies
+    public bool[] blueprints;
+    public int[] robots;
+
+    //Just for fun
+    public List<string> entertainingEvents;
+    public int entertainmentBuffer;
+    // Actually brings up a good question about two way access... gamemanager needs to see menu handler and vice versa
+    public MenuHandlers mh;
+    public NaviHandler nh;
+
+    // Travel stuff
+    public int timeToShop = 30;
 
     public int Scrap
     {
@@ -149,6 +182,22 @@ public class GameManager : MonoBehaviour
         resourceHUD.UpdateHUD(this);
         InvokeRepeating("IncrementTime", 0, 1);
         InvokeRepeating("IncrementBattle", 0, .1f);
+
+        textEvents = new List<TextEvent>();
+
+        foreach (TextEvent te in GameObject.FindObjectsOfType<TextEvent>())
+            textEvents.Add(te);
+
+        blueprints = new bool[2];
+        for (int i = 0; i < blueprints.Length; i++)
+        {
+            blueprints[i] = false;
+        }
+
+        robots = new int[2];
+
+        mh.sbutton.GetComponent<Button>().interactable = false;
+        nh.departButton.interactable = false;
     }
 
     private void IncrementTime()
@@ -158,6 +207,18 @@ public class GameManager : MonoBehaviour
             // Only passive resource gain
             IncrementResources();
             IncrementTimer(passiveTimeIncrement);
+            RandomEncounterTick();
+
+            if (timeToShop == 0)
+            {
+                gameState = GameState.SHOP;
+                mh.sbutton.GetComponent<Button>().interactable = true;
+                nh.departButton.interactable = true;
+                nh.destTime.text = "Arrived At shop";
+                consistentHUD.addStory("Your ship arrives at port. <color=green>Your ship is repaired fully</color>");
+                playerShipStats.health = playerShipStats.maxHealth;
+                consistentHUD.UpdateHUD(this);
+            }
         }
         else if (gameState == GameState.ACTIVE) {
             // Events and battles now randomly occur
@@ -167,10 +228,20 @@ public class GameManager : MonoBehaviour
         else if (gameState == GameState.BATTLE)
         {
             // This is done in IncrementBattle()
+            IncrementResources();
+            IncrementTimer(passiveTimeIncrement);
         }
         else if (gameState == GameState.EVENT)
         {
             // Give the player a text prompt and pause resource updates
+            IncrementResources();
+            IncrementTimer(passiveTimeIncrement);
+        }
+
+        if (timeToShop > 0)
+        {
+            timeToShop--;
+            nh.destTime.text = "Time to shop: " + timeToShop;
         }
 
         // resourceHUD.UpdateHUD(this);
@@ -203,6 +274,8 @@ public class GameManager : MonoBehaviour
 
         if (scrapButtonCD > 0)
             scrapButtonCD -= 1f;
+        if (scrapButtonCD == 0)
+            gearAnim.SetBool("DoSpin", false);
         resourceHUD.UpdateHUD(this);
     }
 
@@ -210,6 +283,7 @@ public class GameManager : MonoBehaviour
     {
         if (scrapButtonCD <= 0)
         {
+            gearAnim.SetBool("DoSpin", true);
             scrap += scrapPC;
 
             scrapButtonCD = scrapButtonCDMax;
@@ -241,7 +315,7 @@ public class GameManager : MonoBehaviour
         // 2% text events
         int randomNum = Random.Range(0, 1000);
         Debug.Log(randomNum);
-        if (randomNum < 100)
+        if (randomNum < 50)
         {
             // battle against random pool of ships
             // StartBattle()
@@ -251,10 +325,28 @@ public class GameManager : MonoBehaviour
                 StartBattle(currentZoneEnemies[randomZoneShip]);
             }
         }
-        else if (randomNum < 30)
+        else if (randomNum < 100 && eventCDFlag == 0)
         {
             // Random text event
+            if (textEvents.Count > 0)
+            {
+                int randomEvent = Random.Range(0, textEvents.Count);
+                StartTextEvent(textEvents[randomEvent]);
+            }
         }
+        else if (randomNum < 200 && entertainmentBuffer <= 0)
+        {
+            // Random text event
+            if (entertainingEvents.Count > 0)
+            {
+                int randomEvent = Random.Range(0, entertainingEvents.Count);
+                consistentHUD.addStory(entertainingEvents[randomEvent]);
+                entertainmentBuffer = 5;
+            }
+        }
+
+        if (entertainmentBuffer > 0)
+            entertainmentBuffer--;
     }
 
     private void StartBattle(GameObject enemyShip)
@@ -273,6 +365,7 @@ public class GameManager : MonoBehaviour
         }
 
         gameState = GameState.BATTLE;
+        consistentHUD.addStory("As the clouds part you spot a ship in the distance. Pirates! You prepare to battle...");
         debugHUD.UpdateHUD(this);
     }
 
@@ -311,9 +404,12 @@ public class GameManager : MonoBehaviour
             yield return new WaitForSeconds(1f);
 
             // Game over
-            gameState = GameState.ACTIVE;
+            gameState = GameState.IDLE;
             DestroyImmediate(enemyShipStats.gameObject, true);
             scrap = scrap / 2;
+
+            consistentHUD.addStory("Your ship narrowly escapes and you <color=red>lose half your scrap</color>");
+
             playerShipStats.health = playerShipStats.maxHealth;
             consistentHUD.UpdateHUD(this);
             debugHUD.UpdateHUD(this);
@@ -326,14 +422,93 @@ public class GameManager : MonoBehaviour
             // Add rewards
             // (list of reward executable types)
 
+            scrap += loser.scrapReward;
+
+            consistentHUD.addStory("You send crew members down to salvage the ship. <color=green>Scrap +" + loser.scrapReward + "</color>");
+
+            resourceHUD.UpdateHUD(this);
+
             // Ship anim play death
             yield return new WaitForSeconds(1f);
 
 
             DestroyImmediate(loser.gameObject, true);
-            gameState = GameState.ACTIVE;
+            gameState = GameState.IDLE;
             // Might need to wait for all co routines to end
             debugHUD.UpdateHUD(this);
+        }
+    }
+
+    public void StartTextEvent(TextEvent textEvent)
+    {
+        // Add story
+
+        consistentHUD.addStory(textEvent.eventTextShort);
+        eventPromptText.text = textEvent.eventText;
+
+        // Open the event text box
+
+        eventCanvas.enabled = true;
+
+        // Assign buttons correct handlers
+
+        eventButton1.onClick.RemoveAllListeners();
+        eventButton2.onClick.RemoveAllListeners();
+
+        eventButton1.onClick.AddListener(textEvent.onOption1);
+        eventButton1.gameObject.GetComponentInChildren<TextMeshProUGUI>().text = textEvent.option1Name;
+
+        if (textEvent.numOptions == 2)
+        {
+            eventButton2.enabled = true;
+            eventButton2.onClick.AddListener(textEvent.onOption2);
+            eventButton2.gameObject.GetComponentInChildren<TextMeshProUGUI>().text = textEvent.option2Name;
+        }
+        else
+        {
+            eventButton2.enabled = false;
+        }
+
+        gameState = GameState.EVENT;
+
+        eventCDFlag = 30;
+
+        // Start timer
+        StartCoroutine(EventTimer(textEvent));
+    }
+
+    public IEnumerator EventTimer(TextEvent textEvent)
+    {
+        int i = 25;
+
+        eventTimerText.text = i.ToString();
+
+        while (i > 0 && eventCanvas.enabled)
+        {
+            yield return new WaitForSeconds(1f);
+            i--;
+            eventTimerText.text = i.ToString();
+
+            if (i == 0)
+            {
+                // consistentHUD.addStory(textEvent.doNothingText);
+                textEvent.onDoNothing();
+            }
+        }
+
+        if (eventCanvas.enabled)
+        {
+            eventCanvas.enabled = false;
+            gameState = GameState.IDLE;
+        }
+    }
+
+    public IEnumerator EventCDTimer()
+    {
+        while (eventCDFlag > 0)
+        {
+            yield return new WaitForSeconds(1f);
+            eventCDFlag--;
         }
     }
 }

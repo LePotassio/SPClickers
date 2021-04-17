@@ -185,6 +185,8 @@ MonoBehaviour:
   health: 5
   maxHealth: 5
   evasion: 0
+  scrapReward: 5
+  isDead: 0
   weapons:
   - {fileID: 3007328414178403430}
   spriteHolder: {fileID: 3007328414280503524}

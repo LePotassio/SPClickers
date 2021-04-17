@@ -7,6 +7,7 @@ public class ShipStats : MonoBehaviour
     public int health;
     public int maxHealth;
     public float evasion;
+    public int scrapReward;
 
     public bool isDead = false;
 

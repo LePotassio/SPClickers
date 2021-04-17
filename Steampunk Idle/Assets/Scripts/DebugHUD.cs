@@ -10,6 +10,6 @@ public class DebugHUD : MonoBehaviour
 
     public void UpdateHUD(GameManager gm)
     {
-        stateText.text = "Current Game State: " + gm.gameState;
+        stateText.text = "GS: " + gm.gameState;
     }
 }

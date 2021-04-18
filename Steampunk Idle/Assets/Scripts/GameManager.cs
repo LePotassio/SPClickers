@@ -79,6 +79,11 @@ public class GameManager : MonoBehaviour
     // Travel stuff
     public int timeToShop = 30;
 
+    public GameObject gear;
+
+    public GameObject shopSpritePrefab;
+    public GameObject shopSprite;
+
     public int Scrap
     {
         get
@@ -176,6 +181,11 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void Awake()
+    {
+        Screen.SetResolution(562, 1000, false);
+    }
+
     private void Start()
     {
         debugHUD.UpdateHUD(this);
@@ -194,7 +204,8 @@ public class GameManager : MonoBehaviour
             blueprints[i] = false;
         }
 
-        robots = new int[2];
+        //0 is golem, 1 is hauler, 2 is scuttler (because changes to hardcode)
+        robots = new int[3];
 
         mh.sbutton.GetComponent<Button>().interactable = false;
         nh.departButton.interactable = false;
@@ -204,10 +215,6 @@ public class GameManager : MonoBehaviour
     {
         if (gameState == GameState.IDLE)
         {
-            // Only passive resource gain
-            IncrementResources();
-            IncrementTimer(passiveTimeIncrement);
-            RandomEncounterTick();
 
             if (timeToShop == 0)
             {
@@ -218,7 +225,16 @@ public class GameManager : MonoBehaviour
                 consistentHUD.addStory("Your ship arrives at port. <color=green>Your ship is repaired fully</color>");
                 playerShipStats.health = playerShipStats.maxHealth;
                 consistentHUD.UpdateHUD(this);
+                gear.GetComponent<SpriteRenderer>().enabled = false;
+                shopSprite = Instantiate(shopSpritePrefab, enemySpawn);
+                //lol this should all be in navi handler or shop maybe
+                nh.naviInFlight.SetActive(false);
+                nh.naviArrived.SetActive(true);
+                return;
             }
+            IncrementResources();
+            IncrementTimer(passiveTimeIncrement);
+            RandomEncounterTick();
         }
         else if (gameState == GameState.ACTIVE) {
             // Events and battles now randomly occur
@@ -405,7 +421,7 @@ public class GameManager : MonoBehaviour
 
             // Game over
             gameState = GameState.IDLE;
-            DestroyImmediate(enemyShipStats.gameObject, true);
+            DestroyImmediate(enemyShipStats.gameObject, false);
             scrap = scrap / 2;
 
             consistentHUD.addStory("Your ship narrowly escapes and you <color=red>lose half your scrap</color>");
